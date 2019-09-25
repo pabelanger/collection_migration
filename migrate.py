@@ -410,7 +410,38 @@ def rewrite_imports_in_fst(mod_fst, import_map, collection, spec, namespace, arg
             imp_src[2] = plugin_collection
             deps.append((plugin_namespace, plugin_collection))
 
+        respect_line_length(imp, max_chars=160)
+
     return deps
+
+
+def respect_line_length(import_node, *, max_chars=79):
+    """Split the import node into multiple if it's too long."""
+    if import_node.type != 'from_import':
+        return
+
+    parent_node = import_node.parent
+    replacement_position = slice(
+        import_node.index_on_parent,
+        import_node.index_on_parent + 1,
+    )
+    node_bounding_box = (
+        import_node.bounding_box.top_left -
+        import_node.bounding_box.bottom_right
+    )
+
+    is_too_long = node_bounding_box.column <= max_chars
+    if not is_too_long:
+        return
+
+    import_targets = import_node.targets
+    replacement_import_nodes = [
+        import_node.copy() for _ in import_targets
+    ]
+    for node, target in zip(replacement_import_nodes, import_targets):
+        node.targets = target
+    parent_node[replacement_position] = replacement_import_nodes
+    # TODO: validate new entries (replacement_import_nodes) too
 
 
 def read_module_txt_n_fst(path):
