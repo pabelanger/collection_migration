@@ -144,6 +144,11 @@ def write_text_into_file(path, text):
         return f.write(text)
 
 
+def write_fst_into_file(path, fst):
+    """Dump fst into the given file path."""
+    write_text_into_file(path, fst.dumps().rstrip())
+
+
 # ===== SPEC utils =====
 def load_spec_file(spec_file):
 
@@ -752,7 +757,7 @@ def assemble_collections(spec, args, target_github_org):
                     except LookupError as err:
                         docs_dependencies = []
                         logger.info('%s in %s', err, src)
-                    plugin_data_new = mod_fst.dumps()
+                    plugin_data_new = mod_fst.dumps().rstrip()
 
                     if mod_src_text != plugin_data_new:
                         for dep_ns, dep_coll in docs_dependencies + import_dependencies:
@@ -781,7 +786,7 @@ def assemble_collections(spec, args, target_github_org):
             ):
                 _unit_test_module_src_text, unit_test_module_fst = read_module_txt_n_fst(file_path)
                 unit_deps += rewrite_imports(unit_test_module_fst, collection, spec, namespace, args)
-                write_text_into_file(file_path, unit_test_module_fst.dumps())
+                write_fst_into_file(dest, unit_test_module_fst)
 
             inject_gitignore_into_tests(collection_dir)
 
@@ -984,12 +989,11 @@ def rewrite_integration_tests(test_dirs, checkout_dir, collection_dir, namespace
                     except LookupError as err:
                         docs_dependencies = []
                         logger.info('%s in %s', err, full_path)
-                    plugin_data_new = mod_fst.dumps()
 
                     for dep_ns, dep_coll in docs_dependencies + import_dependencies:
                         integration_tests_add_to_deps((namespace, collection), (dep_ns, dep_coll))
 
-                    write_text_into_file(dest, plugin_data_new)
+                    write_fst_into_file(dest, mod_fst)
                 elif ext in ('.ps1',):
                     # FIXME
                     pass
