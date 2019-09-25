@@ -146,7 +146,7 @@ def write_text_into_file(path, text):
 
 def write_fst_into_file(path, fst):
     """Dump fst into the given file path."""
-    write_text_into_file(path, fst.dumps().rstrip())
+    write_text_into_file(path, fst.dumps().rstrip() + '\n')
 
 
 # ===== SPEC utils =====
@@ -757,7 +757,7 @@ def assemble_collections(spec, args, target_github_org):
                     except LookupError as err:
                         docs_dependencies = []
                         logger.info('%s in %s', err, src)
-                    plugin_data_new = mod_fst.dumps().rstrip()
+                    plugin_data_new = mod_fst.dumps().rstrip() + '\n'
 
                     if mod_src_text != plugin_data_new:
                         for dep_ns, dep_coll in docs_dependencies + import_dependencies:
