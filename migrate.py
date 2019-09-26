@@ -149,6 +149,16 @@ def write_fst_into_file(path, fst):
     write_text_into_file(path, fst.dumps().rstrip() + '\n')
 
 
+def render_fst(fst):
+    """Render FST node in color when in terminal."""
+    node_txt = str(fst)
+    if not sys.stdout.isatty() or redbaron.runned_from_ipython():
+        # It doesn't make sense to highlight non-tty output
+        # And also redbaron applies it by itself when under ipython
+        return node_txt
+    return redbaron.python_highlight(node_txt).decode()
+
+
 # ===== SPEC utils =====
 def load_spec_file(spec_file):
 
@@ -445,8 +455,20 @@ def respect_line_length(import_node, *, max_chars=79):
     ]
     for node, target in zip(replacement_import_nodes, import_targets):
         node.targets = target
+        node_bounding_box = (
+            node.bounding_box.bottom_right -
+            node.bounding_box.top_left
+        )
+        is_too_long = node_bounding_box.column > max_chars
+        if True or is_too_long:
+            logger.warning(
+                '%s-char long line `%s` is too long. '
+                'It exceeds the limit of %s chars.',
+                node_bounding_box.column,
+                render_fst(node),
+                max_chars,
+            )
     parent_node[replacement_position] = replacement_import_nodes
-    # TODO: validate new entries (replacement_import_nodes) too
 
 
 def read_module_txt_n_fst(path):
