@@ -158,6 +158,10 @@ def render_fst(fst):
         return node_txt
     return redbaron.python_highlight(node_txt).decode()
 
+def get_fst_line_length(fst):
+    """Calculate the absolute line length of the given node."""
+    return fst.absolute_bounding_box.bottom_right.column
+
 
 # ===== SPEC utils =====
 def load_spec_file(spec_file):
@@ -437,12 +441,10 @@ def respect_line_length(import_node, *, max_chars=79):
         import_node.index_on_parent,
         import_node.index_on_parent + 1,
     )
-    node_bounding_box = (
-        import_node.bounding_box.bottom_right -
-        import_node.bounding_box.top_left
-    )
 
-    is_too_long = node_bounding_box.column > max_chars
+    line_length = get_fst_line_length(import_node)
+
+    is_too_long = line_length > max_chars
     if not is_too_long:
         return
 
@@ -452,7 +454,7 @@ def respect_line_length(import_node, *, max_chars=79):
             'It exceeds the limit of %s chars. '
             'However, shrinking is not yet implemented for %s nodes. '
             'Skipping...',
-            node_bounding_box.column,
+            line_length,
             render_fst(import_node),
             max_chars,
             import_node.type,
@@ -467,7 +469,7 @@ def respect_line_length(import_node, *, max_chars=79):
             'It exceeds the limit of %s chars. '
             'However, it only imports %s target(s) '
             'and will not be rewritten therefore. Skipping...',
-            node_bounding_box.column,
+            line_length,
             render_fst(import_node),
             max_chars,
             targets_amount,
@@ -478,7 +480,7 @@ def respect_line_length(import_node, *, max_chars=79):
         '%s-char long line `%s` is too long. '
         'It exceeds the limit of %s chars. '
         'Rewriting it with multiple imports...',
-        node_bounding_box.column,
+        line_length,
         render_fst(import_node),
         max_chars,
     )
@@ -488,20 +490,19 @@ def respect_line_length(import_node, *, max_chars=79):
     ]
     for node, target in zip(replacement_import_nodes, import_targets):
         node.targets = target
-        node_bounding_box = (
-            node.bounding_box.bottom_right -
-            node.bounding_box.top_left
-        )
-        is_too_long = node_bounding_box.column > max_chars
+    parent_node[replacement_position] = replacement_import_nodes
+
+    for node in replacement_import_nodes:
+        line_length = get_fst_line_length(node)
+        is_too_long = line_length > max_chars
         if is_too_long:
             logger.warning(
                 '%s-char long line `%s` is too long. '
                 'It exceeds the limit of %s chars.',
-                node_bounding_box.column,
+                line_length,
                 render_fst(node),
                 max_chars,
             )
-    parent_node[replacement_position] = replacement_import_nodes
 
 
 def read_module_txt_n_fst(path):
