@@ -460,7 +460,7 @@ def respect_line_length(import_node, *, max_chars=79):
             node.bounding_box.top_left
         )
         is_too_long = node_bounding_box.column > max_chars
-        if True or is_too_long:
+        if is_too_long:
             logger.warning(
                 '%s-char long line `%s` is too long. '
                 'It exceeds the limit of %s chars.',
