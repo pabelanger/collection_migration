@@ -432,9 +432,6 @@ def rewrite_imports_in_fst(mod_fst, import_map, collection, spec, namespace, arg
 
 def respect_line_length(import_node, *, max_chars=79):
     """Split the import node into multiple if it's too long."""
-    if import_node.type != 'from_import':
-        return
-
     parent_node = import_node.parent
     replacement_position = slice(
         import_node.index_on_parent,
@@ -449,7 +446,43 @@ def respect_line_length(import_node, *, max_chars=79):
     if not is_too_long:
         return
 
+    if import_node.type != 'from_import':
+        logger.warning(
+            '%s-char long line `%s` is too long. '
+            'It exceeds the limit of %s chars. '
+            'However, shrinking is not yet implemented for %s nodes. '
+            'Skipping...',
+            node_bounding_box.column,
+            render_fst(import_node),
+            max_chars,
+            import_node.type,
+        )
+        return
+
     import_targets = import_node.targets
+    targets_amount = len(import_targets)
+    if targets_amount < 2:
+        logger.warning(
+            '%s-char long line `%s` is too long. '
+            'It exceeds the limit of %s chars. '
+            'However, it only imports %s target(s) '
+            'and will not be rewritten therefore. Skipping...',
+            node_bounding_box.column,
+            render_fst(import_node),
+            max_chars,
+            targets_amount,
+        )
+        return
+
+    logger.info(
+        '%s-char long line `%s` is too long. '
+        'It exceeds the limit of %s chars. '
+        'Rewriting it with multiple imports...',
+        node_bounding_box.column,
+        render_fst(import_node),
+        max_chars,
+    )
+
     replacement_import_nodes = [
         import_node.copy() for _ in import_targets
     ]
