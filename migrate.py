@@ -431,11 +431,11 @@ def respect_line_length(import_node, *, max_chars=79):
         import_node.index_on_parent + 1,
     )
     node_bounding_box = (
-        import_node.bounding_box.top_left -
-        import_node.bounding_box.bottom_right
+        import_node.bounding_box.bottom_right -
+        import_node.bounding_box.top_left
     )
 
-    is_too_long = node_bounding_box.column <= max_chars
+    is_too_long = node_bounding_box.column > max_chars
     if not is_too_long:
         return
 
