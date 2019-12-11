@@ -1876,6 +1876,8 @@ def main():
                         help='force refreshing local Ansible checkout')
     parser.add_argument('-t', '--target-dir', dest='vardir', default=VARDIR,
                         help='target directory for resulting collections and rpm')
+    parser.add_argument('--clone-directory', dest='clone_dir', default=False,
+                        help='The name of a new directory to git clone into')
     parser.add_argument('-p', '--preserve-module-subdirs', action='store_true', dest='preserve_module_subdirs', default=False,
                         help='preserve module subdirs per spec')
     parser.add_argument(
@@ -1938,7 +1940,11 @@ def main():
             raise
 
     releases_dir = os.path.join(args.vardir, 'releases')
-    devel_path = os.path.join(releases_dir, f'{DEVEL_BRANCH}.git')
+
+    if args.clone_dir:
+        devel_path = args.clone_dir
+    else:
+        devel_path = os.path.join(releases_dir, f'{DEVEL_BRANCH}.git')
 
     global ALL_THE_FILES
     ALL_THE_FILES = checkout_repo(DEVEL_URL, devel_path, refresh=args.refresh)
