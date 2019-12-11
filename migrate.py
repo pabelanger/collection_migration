@@ -188,7 +188,8 @@ def write_yaml_into_file_as_is(path, data):
 
 
 def write_ansible_yaml_into_file_as_is(path, data):
-    yaml_text = yaml.dump(data, Dumper=AnsibleDumper, allow_unicode=True, default_flow_style=False, sort_keys=False)
+    yaml_text = yaml.dump(
+        data, Dumper=AnsibleDumper, allow_unicode=True, default_flow_style=False, sort_keys=False, explicit_start=True)
     write_text_into_file(path, yaml_text)
 
 
