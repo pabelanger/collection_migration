@@ -1685,7 +1685,7 @@ KEYWORD_TO_PLUGIN_MAP = {
 def _rewrite_yaml_mapping_keys_non_vars(el, namespace, collection, spec, args):
     translate = []
     for key in el.keys():
-        if is_reserved_name(key):
+        if 'connection' not in key and is_reserved_name(key):
             continue
 
         prefix = 'with_'
@@ -1731,6 +1731,23 @@ def _rewrite_yaml_mapping_keys_non_vars(el, namespace, collection, spec, args):
 
                     logger.debug(msg)
                     translate.append((new_module_name, key))
+                    integration_tests_add_to_deps((namespace, collection), (ns, coll))
+
+                try:
+                    connections_in_collection = get_plugins_from_collection(ns, coll, 'connection', spec)
+                except LookupError:
+                    continue
+
+                for connection in connections_in_collection:
+                    if el[key] != connection:
+                        continue
+                    new_connection_name = get_plugin_fqcn(ns, coll, el[key])
+                    msg = 'Rewriting to %s' % new_connection_name
+                    if args.fail_on_core_rewrite:
+                        raise RuntimeError(msg)
+
+                    logger.debug(msg)
+                    el[key] = new_connection_name
                     integration_tests_add_to_deps((namespace, collection), (ns, coll))
 
     for new_key, old_key in translate:
