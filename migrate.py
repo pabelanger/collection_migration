@@ -51,7 +51,7 @@ COLLECTION_NAMESPACE = 'test_migrate_ns'
 PLUGIN_EXCEPTION_PATHS = {'modules': 'lib/ansible/modules', 'module_utils': 'lib/ansible/module_utils'}
 
 
-COLLECTION_SKIP_REWRITE = ('_core',)
+COLLECTION_SKIP_REWRITE = []
 
 
 RAW_STR_TMPL = "r'''{str_val}'''"
@@ -1929,6 +1929,8 @@ def main():
                              ' migration against the list of files kept in core: spec must contain the "_core" collection.')
     parser.add_argument('-R', '--skip-tests', action='store_true', dest='skip_tests', default=False,
                         help='Skip tests and rewrite the runtime code only.')
+    parser.add_argument('-c', '--collection-skip-rewrite', dest='collection_skip_rewrite', default='_core', nargs='+',
+                        help='override the default collection skip rewrite (_core)')
 
     args = parser.parse_args()
 
@@ -1964,6 +1966,11 @@ def main():
 
     if args.push_migrated_core:
         push_migrated_core(releases_dir)
+
+    # set the collection rewrite skip
+    global COLLECTION_SKIP_REWRITE
+    COLLECTION_SKIP_REWRITE = args.collection_skip_rewrite
+    logger.info('COLLECTION_SKIP_REWRITE set to %s', COLLECTION_SKIP_REWRITE)
 
     global core
     print('======= Assumed stayed in core =======\n')
