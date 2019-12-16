@@ -51,7 +51,7 @@ COLLECTION_NAMESPACE = 'test_migrate_ns'
 PLUGIN_EXCEPTION_PATHS = {'modules': 'lib/ansible/modules', 'module_utils': 'lib/ansible/module_utils'}
 
 
-COLLECTION_SKIP_REWRITE = []
+COLLECTION_SKIP_REWRITE = ('_core')
 
 
 RAW_STR_TMPL = "r'''{str_val}'''"
@@ -285,7 +285,9 @@ def get_plugin_fqcn(namespace, collection, plugin_name):
 
 
 def get_rewritable_collections(namespace, spec):
-    return (collection for collection in spec[namespace].keys() if collection not in COLLECTION_SKIP_REWRITE)
+    res = (collection for collection in spec[namespace].keys() if collection not in COLLECTION_SKIP_REWRITE)
+    logger.debug("Rewritable collections set to %s", res)
+    return res
 
 
 # ===== REWRITE FUNCTIONS =====
@@ -653,6 +655,7 @@ def rewrite_imports_in_fst(mod_fst, import_map, collection, spec, namespace, arg
 
 
 def rewrite_py(src, dest, collection, spec, namespace, args):
+
     mod_src_text, mod_fst = read_module_txt_n_fst(src)
 
     import_deps = rewrite_imports(mod_fst, collection, spec, namespace, args)
@@ -662,6 +665,9 @@ def rewrite_py(src, dest, collection, spec, namespace, args):
     except LookupError as err:
         docs_deps = []
         logger.debug('%s in %s', err, src)
+
+    if COLLECTION_SKIP_BUILD:
+        return (import_deps, docs_deps)
 
     rewrite_class_property(mod_fst, collection, namespace, dest)
 
@@ -1929,8 +1935,8 @@ def main():
                              ' migration against the list of files kept in core: spec must contain the "_core" collection.')
     parser.add_argument('-R', '--skip-tests', action='store_true', dest='skip_tests', default=False,
                         help='Skip tests and rewrite the runtime code only.')
-    parser.add_argument('-c', '--collection-skip-rewrite', dest='collection_skip_rewrite', default='_core', nargs='+',
-                        help='override the default collection skip rewrite (_core)')
+    parser.add_argument('-b', '--collection-skip-build', dest='collection_skip_build', default=False, action='store_true',
+                        help='skip populating the collections with migrated files')
 
     args = parser.parse_args()
 
@@ -1938,10 +1944,10 @@ def main():
     spec = {}
 
     # set the collection rewrite skip
-    global COLLECTION_SKIP_REWRITE
-    COLLECTION_SKIP_REWRITE = args.collection_skip_rewrite
-    logger.info('COLLECTION_SKIP_REWRITE set to %s', COLLECTION_SKIP_REWRITE)
-        
+    global COLLECTION_SKIP_BUILD
+    COLLECTION_SKIP_BUILD = args.collection_skip_build
+    logger.info('COLLECTION_SKIP_BUILD set to %s', COLLECTION_SKIP_BUILD)
+
     for spec_file in os.listdir(args.spec_dir):
         if not spec_file.endswith('.yml'):
             logger.debug('skipping %s as it is not a yaml file', spec_file)
