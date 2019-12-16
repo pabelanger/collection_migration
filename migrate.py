@@ -1937,6 +1937,11 @@ def main():
     # required, so we should always have
     spec = {}
 
+    # set the collection rewrite skip
+    global COLLECTION_SKIP_REWRITE
+    COLLECTION_SKIP_REWRITE = args.collection_skip_rewrite
+    logger.info('COLLECTION_SKIP_REWRITE set to %s', COLLECTION_SKIP_REWRITE)
+        
     for spec_file in os.listdir(args.spec_dir):
         if not spec_file.endswith('.yml'):
             logger.debug('skipping %s as it is not a yaml file', spec_file)
@@ -1966,11 +1971,6 @@ def main():
 
     if args.push_migrated_core:
         push_migrated_core(releases_dir)
-
-    # set the collection rewrite skip
-    global COLLECTION_SKIP_REWRITE
-    COLLECTION_SKIP_REWRITE = args.collection_skip_rewrite
-    logger.info('COLLECTION_SKIP_REWRITE set to %s', COLLECTION_SKIP_REWRITE)
 
     global core
     print('======= Assumed stayed in core =======\n')
