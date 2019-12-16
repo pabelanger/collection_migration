@@ -285,10 +285,8 @@ def get_plugin_fqcn(namespace, collection, plugin_name):
 
 
 def get_rewritable_collections(namespace, spec):
-    res = (collection for collection in spec[namespace].keys() if collection not in COLLECTION_SKIP_REWRITE)
-    logger.debug("Rewritable collections set to %s", res)
-    return res
-
+    return (collection for collection in spec[namespace].keys() if collection not in COLLECTION_SKIP_REWRITE)
+    
 
 # ===== REWRITE FUNCTIONS =====
 def rewrite_class_property(mod_fst, collection, namespace, filename):
