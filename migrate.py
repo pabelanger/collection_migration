@@ -653,7 +653,6 @@ def rewrite_imports_in_fst(mod_fst, import_map, collection, spec, namespace, arg
 
 
 def rewrite_py(src, dest, collection, spec, namespace, args):
-
     mod_src_text, mod_fst = read_module_txt_n_fst(src)
 
     import_deps = rewrite_imports(mod_fst, collection, spec, namespace, args)
