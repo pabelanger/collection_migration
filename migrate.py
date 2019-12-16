@@ -663,9 +663,6 @@ def rewrite_py(src, dest, collection, spec, namespace, args):
         docs_deps = []
         logger.debug('%s in %s', err, src)
 
-    if COLLECTION_SKIP_BUILD:
-        return (import_deps, docs_deps)
-
     rewrite_class_property(mod_fst, collection, namespace, dest)
 
     plugin_data_new = mod_fst.dumps()
