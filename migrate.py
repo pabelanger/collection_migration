@@ -1050,11 +1050,12 @@ def assemble_collections(checkout_path, spec, args, target_github_org):
 
             collection_dir = os.path.join(collections_base_dir, 'ansible_collections', namespace, collection)
 
-            if args.refresh and os.path.exists(collection_dir):
-                shutil.rmtree(collection_dir)
+            if not COLLECTION_SKIP_BUILD:
+                if args.refresh and os.path.exists(collection_dir):
+                    shutil.rmtree(collection_dir)
 
-            if not os.path.exists(collection_dir):
-                os.makedirs(collection_dir)
+                if not os.path.exists(collection_dir):
+                    os.makedirs(collection_dir)
 
             # create the data for galaxy.yml
             galaxy_metadata = init_galaxy_metadata(collection, namespace, target_github_org)
@@ -1071,7 +1072,8 @@ def assemble_collections(checkout_path, spec, args, target_github_org):
                 # ensure destinations exist
                 relative_dest_plugin_base = os.path.join('plugins', plugin_type)
                 dest_plugin_base = os.path.join(collection_dir, relative_dest_plugin_base)
-                if not os.path.exists(dest_plugin_base):
+                
+                if not os.path.exists(dest_plugin_base) and not COLLECTION_SKIP_BUILD:
                     os.makedirs(dest_plugin_base)
                     write_text_into_file(os.path.join(dest_plugin_base, '__init__.py'), '')
 
