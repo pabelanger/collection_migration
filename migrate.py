@@ -51,7 +51,7 @@ COLLECTION_NAMESPACE = 'test_migrate_ns'
 PLUGIN_EXCEPTION_PATHS = {'modules': 'lib/ansible/modules', 'module_utils': 'lib/ansible/module_utils'}
 
 
-COLLECTION_SKIP_REWRITE = ('_core')
+COLLECTION_SKIP_REWRITE = ('_core',)
 
 
 RAW_STR_TMPL = "r'''{str_val}'''"
@@ -286,7 +286,7 @@ def get_plugin_fqcn(namespace, collection, plugin_name):
 
 def get_rewritable_collections(namespace, spec):
     return (collection for collection in spec[namespace].keys() if collection not in COLLECTION_SKIP_REWRITE)
-    
+
 
 # ===== REWRITE FUNCTIONS =====
 def rewrite_class_property(mod_fst, collection, namespace, filename):
