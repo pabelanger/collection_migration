@@ -1050,11 +1050,12 @@ def assemble_collections(checkout_path, spec, args, target_github_org):
 
             collection_dir = os.path.join(collections_base_dir, 'ansible_collections', namespace, collection)
 
-            if args.refresh and os.path.exists(collection_dir):
-                shutil.rmtree(collection_dir)
+            if not COLLECTION_SKIP_BUILD:
+                if args.refresh and os.path.exists(collection_dir):
+                    shutil.rmtree(collection_dir)
 
-            if not os.path.exists(collection_dir):
-                os.makedirs(collection_dir)
+                if not os.path.exists(collection_dir):
+                    os.makedirs(collection_dir)
 
             # create the data for galaxy.yml
             galaxy_metadata = init_galaxy_metadata(collection, namespace, target_github_org)
@@ -1071,7 +1072,8 @@ def assemble_collections(checkout_path, spec, args, target_github_org):
                 # ensure destinations exist
                 relative_dest_plugin_base = os.path.join('plugins', plugin_type)
                 dest_plugin_base = os.path.join(collection_dir, relative_dest_plugin_base)
-                if not os.path.exists(dest_plugin_base):
+                
+                if not os.path.exists(dest_plugin_base) and not COLLECTION_SKIP_BUILD:
                     os.makedirs(dest_plugin_base)
                     write_text_into_file(os.path.join(dest_plugin_base, '__init__.py'), '')
 
@@ -1119,38 +1121,40 @@ def assemble_collections(checkout_path, spec, args, target_github_org):
 
                     migrated_to_collection[relative_src_plugin_path] = relative_dest_plugin_path
 
-                    dest = os.path.join(collection_dir, relative_dest_plugin_path)
-                    if do_preserve_subdirs:
-                        os.makedirs(os.path.dirname(dest), exist_ok=True)
+                    if not COLLECTION_SKIP_BUILD:
+                        dest = os.path.join(collection_dir, relative_dest_plugin_path)
+                        if do_preserve_subdirs:
+                            os.makedirs(os.path.dirname(dest), exist_ok=True)
 
-                    if not os.path.exists(src):
-                        raise Exception('Spec specifies "%s" but file "%s" is not found in checkout' % (plugin, src))
+                        if not os.path.exists(src):
+                            raise Exception('Spec specifies "%s" but file "%s" is not found in checkout' % (plugin, src))
 
-                    if os.path.islink(src):
-                        process_symlink(plugin_type, plugins, dest, src)
-                        # don't rewrite symlinks, original file should already be handled
-                        continue
-                    elif not src.endswith('.py'):
-                        # its not all python files, copy and go to next
-                        # TODO: handle powershell import rewrites
-                        shutil.copyfile(src, dest)
-                        continue
+                        if os.path.islink(src):
+                            process_symlink(plugin_type, plugins, dest, src)
+                            # don't rewrite symlinks, original file should already be handled
+                            continue
+                        elif not src.endswith('.py'):
+                            # its not all python files, copy and go to next
+                            # TODO: handle powershell import rewrites
+                            shutil.copyfile(src, dest)
+                            continue
 
-                    logger.info('Processing %s -> %s', src, dest)
 
-                    deps = rewrite_py(src, dest, collection, spec, namespace, args)
-                    import_deps += deps[0]
-                    docs_deps += deps[1]
+                        logger.info('Processing %s -> %s', src, dest)
 
-                    if args.skip_tests:
-                        continue
+                        deps = rewrite_py(src, dest, collection, spec, namespace, args)
+                        import_deps += deps[0]
+                        docs_deps += deps[1]
 
-                    integration_test_dirs.extend(poor_mans_integration_tests_discovery(checkout_path, plugin_type, plugin))
-                    # process unit tests
-                    plugin_unit_tests_copy_map = create_unit_tests_copy_map(
-                        checkout_path, collection_dir, plugin_type, plugin,
-                    )
-                    unit_tests_copy_map.update(plugin_unit_tests_copy_map)
+                        if args.skip_tests:
+                            continue
+
+                        integration_test_dirs.extend(poor_mans_integration_tests_discovery(checkout_path, plugin_type, plugin))
+                        # process unit tests
+                        plugin_unit_tests_copy_map = create_unit_tests_copy_map(
+                            checkout_path, collection_dir, plugin_type, plugin,
+                        )
+                        unit_tests_copy_map.update(plugin_unit_tests_copy_map)
 
             if not args.skip_tests:
                 copy_unit_tests(unit_tests_copy_map, collection_dir, checkout_path)
@@ -1180,29 +1184,30 @@ def assemble_collections(checkout_path, spec, args, target_github_org):
                 add_deps_to_metadata(integration_tests_deps.union(import_deps + docs_deps + unit_deps), galaxy_metadata)
                 integration_tests_deps = set()
 
-            inject_gitignore_into_collection(collection_dir)
-            inject_readme_into_collection(
-                collection_dir,
-                ctx={'coll_ns': namespace, 'coll_name': collection},
-            )
-            inject_github_actions_workflow_into_collection(
-                collection_dir,
-                ctx={'coll_ns': namespace, 'coll_name': collection},
-            )
+            if not COLLECTION_SKIP_BUILD:
+                inject_gitignore_into_collection(collection_dir)
+                inject_readme_into_collection(
+                    collection_dir,
+                    ctx={'coll_ns': namespace, 'coll_name': collection},
+                )
+                inject_github_actions_workflow_into_collection(
+                    collection_dir,
+                    ctx={'coll_ns': namespace, 'coll_name': collection},
+                )
 
-            # write collection metadata
-            write_yaml_into_file_as_is(
-                os.path.join(collection_dir, 'galaxy.yml'),
-                galaxy_metadata,
-            )
+                # write collection metadata
+                write_yaml_into_file_as_is(
+                    os.path.join(collection_dir, 'galaxy.yml'),
+                    galaxy_metadata,
+                )
 
-            # init git repo
-            subprocess.check_call(('git', 'init'), cwd=collection_dir)
-            subprocess.check_call(('git', 'add', '.'), cwd=collection_dir)
-            subprocess.check_call(
-                ('git', 'commit', '-m', 'Initial commit', '--allow-empty'),
-                cwd=collection_dir,
-            )
+                # init git repo
+                subprocess.check_call(('git', 'init'), cwd=collection_dir)
+                subprocess.check_call(('git', 'add', '.'), cwd=collection_dir)
+                subprocess.check_call(
+                    ('git', 'commit', '-m', 'Initial commit', '--allow-empty'),
+                    cwd=collection_dir,
+                )
 
             mark_moved_resources(
                 checkout_path, namespace, collection, migrated_to_collection,
@@ -1929,11 +1934,18 @@ def main():
                              ' migration against the list of files kept in core: spec must contain the "_core" collection.')
     parser.add_argument('-R', '--skip-tests', action='store_true', dest='skip_tests', default=False,
                         help='Skip tests and rewrite the runtime code only.')
+    parser.add_argument('-b', '--collection-skip-build', dest='collection_skip_build', default=False, action='store_true',
+                        help='skip populating the collections with migrated files')
 
     args = parser.parse_args()
 
     # required, so we should always have
     spec = {}
+
+    # set the collection rewrite skip
+    global COLLECTION_SKIP_BUILD
+    COLLECTION_SKIP_BUILD = args.collection_skip_build
+    logger.info('COLLECTION_SKIP_BUILD set to %s', COLLECTION_SKIP_BUILD)
 
     for spec_file in os.listdir(args.spec_dir):
         if not spec_file.endswith('.yml'):
