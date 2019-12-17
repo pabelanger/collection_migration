@@ -1099,7 +1099,7 @@ def assemble_collections(checkout_path, spec, args, target_github_org):
                     write_text_into_file(os.path.join(dest_plugin_base, '__init__.py'), '')
 
                 # process each plugin
-                for plugin in plugins:
+                for idx, plugin in enumerate(plugins):
                     if os.path.splitext(plugin)[1] in BAD_EXT:
                         raise Exception("We should not be migrating compiled files: %s" % plugin)
 
@@ -1178,7 +1178,19 @@ def assemble_collections(checkout_path, spec, args, target_github_org):
                         if args.skip_tests:
                             continue
 
+
+                        if RENAME_DEPRECATED_PLUGINS and os.path.basename(plugin).startswith('_') and os.path.basename(plugin) != '__init__.py':
+                            depr_name = os.path.basename(plugin)
+                            new_name = os.path.basename(plugin)[1:]
+                            # since we've already moved the files
+                            # the deprecated plugin needs to have it's name changed
+                            # change the plugin name from _ to an undprecated name
+                            # change the reference in the spec to the dest name
+                            plugin = plugin.replace(depr_name, new_name)
+                            plugins[idx] = plugin
+
                         integration_test_dirs.extend(poor_mans_integration_tests_discovery(checkout_path, plugin_type, plugin))
+
                         # process unit tests
                         plugin_unit_tests_copy_map = create_unit_tests_copy_map(
                             checkout_path, collection_dir, plugin_type, plugin,
