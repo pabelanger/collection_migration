@@ -1148,11 +1148,6 @@ def assemble_collections(checkout_path, spec, args, target_github_org):
                         plugin_path_chunk = plugin if do_preserve_subdirs else os.path.basename(plugin)
 
                     relative_dest_plugin_path = os.path.join(relative_dest_plugin_base, plugin_path_chunk)
-
-                    logger.debug("foo %s", relative_dest_plugin_path)
-                    logger.debug("bar %s", relative_src_plugin_path)
-                    logger.debug("qua %s", plugin)
-
                     migrated_to_collection[relative_src_plugin_path] = relative_dest_plugin_path
 
                     if not COLLECTION_SKIP_BUILD:
