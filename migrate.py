@@ -1140,7 +1140,7 @@ def assemble_collections(checkout_path, spec, args, target_github_org):
                     )
 
 
-                    if RENAME_DEPRECATED_PLUGINS and os.path.basename(plugin).startswith('_'):
+                    if RENAME_DEPRECATED_PLUGINS and os.path.basename(plugin).startswith('_') and os.path.basename(plugin) != '__init__.py':
                         depr_name = os.path.basename(plugin)
                         new_name = os.path.basename(plugin)[1:]
                         plugin_path_chunk = plugin.replace(depr_name, new_name) if do_preserve_subdirs else new_name
