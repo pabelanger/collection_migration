@@ -52,6 +52,8 @@ PLUGIN_EXCEPTION_PATHS = {'modules': 'lib/ansible/modules', 'module_utils': 'lib
 
 
 COLLECTION_SKIP_REWRITE = ('_core',)
+COLLECTION_SKIP_BUILD = None  # set by params
+MIGRATE_DEPRECATED_PLUGINS = None  # set by params
 
 
 RAW_STR_TMPL = "r'''{str_val}'''"
@@ -1091,7 +1093,7 @@ def assemble_collections(checkout_path, spec, args, target_github_org):
                 # ensure destinations exist
                 relative_dest_plugin_base = os.path.join('plugins', plugin_type)
                 dest_plugin_base = os.path.join(collection_dir, relative_dest_plugin_base)
-                
+
                 if not os.path.exists(dest_plugin_base) and not COLLECTION_SKIP_BUILD:
                     os.makedirs(dest_plugin_base)
                     write_text_into_file(os.path.join(dest_plugin_base, '__init__.py'), '')
@@ -1119,10 +1121,11 @@ def assemble_collections(checkout_path, spec, args, target_github_org):
                             logger.info("Removing plugin alias from checkout and skipping: %s (%s in %s.%s)",
                                          plugin, plugin_type, namespace, collection)
                             remove(src)
-                        else:
-                            logger.error("We should not be migrating deprecated plugins, skipping: %s (%s in %s.%s)",
+                            continue
+                        elif not MIGRATE_DEPRECATED_PLUGINS:
+                            logger.error("We are not migrating deprecated plugins, skipping: %s (%s in %s.%s)",
                                          plugin, plugin_type, namespace, collection)
-                        continue
+                            continue
 
                     remove(src)
 
@@ -1135,8 +1138,20 @@ def assemble_collections(checkout_path, spec, args, target_github_org):
                         (args.preserve_module_subdirs and plugin_type == 'modules')
                         or plugin_type == 'module_utils'
                     )
-                    plugin_path_chunk = plugin if do_preserve_subdirs else os.path.basename(plugin)
+
+
+                    if RENAME_DEPRECATED_PLUGINS and os.path.basename(plugin).startswith('_'):
+                        depr_name = os.path.basename(plugin)
+                        new_name = os.path.basename(plugin)[1:]
+                        plugin_path_chunk = plugin.replace(depr_name, new_name) if do_preserve_subdirs else new_name
+                    else:
+                        plugin_path_chunk = plugin if do_preserve_subdirs else os.path.basename(plugin)
+
                     relative_dest_plugin_path = os.path.join(relative_dest_plugin_base, plugin_path_chunk)
+
+                    logger.debug("foo %s", relative_dest_plugin_path)
+                    logger.debug("bar %s", relative_src_plugin_path)
+                    logger.debug("qua %s", plugin)
 
                     migrated_to_collection[relative_src_plugin_path] = relative_dest_plugin_path
 
@@ -1951,6 +1966,10 @@ def main():
                         help='Skip tests and rewrite the runtime code only.')
     parser.add_argument('-b', '--collection-skip-build', dest='collection_skip_build', default=False, action='store_true',
                         help='skip populating the collections with migrated files')
+    parser.add_argument('-d', '--migrate-deprecated-plugins', dest='migrate_deprecated_plugins', default=False, action='store_true',
+                        help='migrate deprecated plugins (ie _xxx)')
+    parser.add_argument('-n', '--rename-deprecated-plugins', dest='rename_deprecated_plugins', default=False, action='store_true',
+                        help='rename deprecated plugins (ie _xxx -> xxx)')
 
     args = parser.parse_args()
 
@@ -1961,6 +1980,16 @@ def main():
     global COLLECTION_SKIP_BUILD
     COLLECTION_SKIP_BUILD = args.collection_skip_build
     logger.info('COLLECTION_SKIP_BUILD set to %s', COLLECTION_SKIP_BUILD)
+
+    # set the migrate deprecated flag
+    global MIGRATE_DEPRECATED_PLUGINS
+    MIGRATE_DEPRECATED_PLUGINS = args.migrate_deprecated_plugins
+    logger.info('MIGRATE_DEPRECATED_PLUGINS set to %s', MIGRATE_DEPRECATED_PLUGINS)
+
+    # set the rename deprecated flag
+    global RENAME_DEPRECATED_PLUGINS
+    RENAME_DEPRECATED_PLUGINS = args.rename_deprecated_plugins
+    logger.info('RENAME_DEPRECATED_PLUGINS set to %s', RENAME_DEPRECATED_PLUGINS)
 
     for spec_file in os.listdir(args.spec_dir):
         if not spec_file.endswith('.yml'):
