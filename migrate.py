@@ -33,6 +33,7 @@ from baron.parser import ParsingError
 import redbaron
 
 from gh import GitHubOrgClient
+from rsa_utils import RSAKey
 from template_utils import render_template_into
 
 
@@ -42,13 +43,14 @@ TEST_RE = re.compile(r'((.+?)\s*([\w \.\'"]+)(\s*)is(\s*)(\w+))')
 
 DEVEL_URL = 'https://github.com/ansible/ansible.git'
 DEVEL_BRANCH = 'devel'
-MIGRATED_DEVEL_REMOTE = 'git@github.com:ansible-collection-migration/ansible-minimal.git'
+MIGRATED_DEVEL_REPO_NAME = 'ansible-minimal'
 
 
 ALL_THE_FILES = set()
 VARDIR = os.environ.get('GRAVITY_VAR_DIR', '.cache')
 COLLECTION_NAMESPACE = 'test_migrate_ns'
-PLUGIN_EXCEPTION_PATHS = {'modules': 'lib/ansible/modules', 'module_utils': 'lib/ansible/module_utils'}
+PLUGIN_EXCEPTION_PATHS = {'modules': 'lib/ansible/modules', 'module_utils': 'lib/ansible/module_utils', 'inventory_scripts': 'contrib/inventory'}
+PLUGIN_DEST_EXCEPTION_PATHS = {'inventory_scripts': 'scripts/inventory'}
 
 
 COLLECTION_SKIP_REWRITE = ('_core',)
@@ -79,7 +81,10 @@ VALID_PLUGIN_TYPES = frozenset({
     'terminal',
     'test',
     'vars',
+    'inventory_scripts',
 })
+NOT_PLUGINS=frozenset(set(['inventory_scripts']))
+
 
 LOGFILE = os.path.join(VARDIR, 'errors.log')
 
@@ -435,22 +440,10 @@ def rewrite_unit_tests_patch(mod_fst, collection, spec, namespace, args):
     return deps
 
 
-def rewrite_version_added(docs):
-    docs.pop('version_added', None)
-
-    if not isinstance(docs['options'], dict):
-        # lib/ansible/plugins/doc_fragments/emc.py:
-        # options': ['See respective platform section for more details'],
-        return
-
-    for option in docs['options']:
-        docs['options'][option].pop('version_added', None)
-
-
 def rewrite_docs_fragments(docs, collection, spec, namespace, args):
     fragments = docs.get('extends_documentation_fragment', [])
     if not fragments:
-        return []
+        return [], []
 
     if not isinstance(fragments, list):
         fragments = [fragments]
@@ -484,9 +477,7 @@ def rewrite_docs_fragments(docs, collection, spec, namespace, args):
         if (namespace, collection) != (fragment_namespace, fragment_collection):
             deps.append((fragment_namespace, fragment_collection))
 
-    docs['extends_documentation_fragment'] = new_fragments
-
-    return deps
+    return deps, new_fragments
 
 
 def rewrite_plugin_documentation(mod_fst, collection, spec, namespace, args):
@@ -501,10 +492,37 @@ def rewrite_plugin_documentation(mod_fst, collection, spec, namespace, args):
     except AttributeError:
         raise LookupError('No DOCUMENTATION found')
 
-    docs_parsed = yaml.safe_load(doc_val.to_python().strip('\n'))
+    docs_parsed_dict = yaml.safe_load(doc_val.to_python().strip('\n'))
+    docs_parsed_list = doc_val.to_python().split('\n')
 
-    deps = rewrite_docs_fragments(docs_parsed, collection, spec, namespace, args)
-    rewrite_version_added(docs_parsed)
+    deps, new_fragments = rewrite_docs_fragments(docs_parsed_dict, collection, spec, namespace, args)
+
+    # https://github.com/ansible-community/collection_migration/issues/81
+    # unfortunately, with PyYAML, the resulting DOCUMENTATION ended up in syntax errors when running sanity tests
+    # to prevent that, use the original string split into list for rewrites
+    new_docs = []
+    in_extends = False
+    for line in docs_parsed_list:
+        # remove version_added, it does not apply to collection in its current state
+        if 'version_added' in line:
+            continue
+
+        # remove extends_documentation_fragment, it will be replaced with rewritten one below
+        if 'extends_documentation_fragment' in line:
+            in_extends = True
+            continue
+        if in_extends and '-' in line:
+            continue
+        else:
+            in_extends = False
+
+        new_docs.append(line)
+
+    if new_fragments:
+        new_docs.append('extends_documentation_fragment:')
+        for new_fragment in new_fragments:
+            new_docs.append('- %s' % new_fragment)
+        new_docs.append('')
 
     doc_str_tmpl = RAW_STR_TMPL if doc_val.type == 'raw_string' else STR_TMPL
     # `doc_val` holds a baron representation of the string node
@@ -525,7 +543,7 @@ def rewrite_plugin_documentation(mod_fst, collection, spec, namespace, args):
     # DOCUMENTATION = '''some string value'''
     # ```
     doc_val.value = doc_str_tmpl.format(
-        str_val=yaml.dump(docs_parsed, allow_unicode=True, default_flow_style=False, sort_keys=False),
+        str_val='\n'.join(new_docs)
     )
 
     return deps
@@ -705,13 +723,12 @@ def read_module_txt_n_fst(path):
 
 
 def inject_init_into_tree(target_dir):
-    for initpath in (
-            os.path.join(dp, '__init__.py')
-            for dp, dn, fn in os.walk(target_dir)
-            if '__init__.py' not in fn
-            # and any(f.endwith('.py') for f in fn)
-    ):
-        write_text_into_file(initpath, '')
+    """Insert ``__init__.py`` file into unit test directories."""
+    for root, dirs, files in os.walk(target_dir):
+        python_files_exist = any(fn.endswith('.py') for fn in files)
+        possibly_subpackages_exist = len(dirs) > 0
+        if '__init__.py' not in files and (python_files_exist or possibly_subpackages_exist):
+            write_text_into_file(os.path.join(root, '__init__.py'), '')
 
 
 def inject_readme_into_collection(collection_dir, *, ctx):
@@ -866,6 +883,15 @@ def create_unit_tests_copy_map(checkout_path, collection_dir, plugin_type, plugi
         plugin_dir,
         f'*{plugin_mod}',
     )))
+    # plugin_mod might also be a directory, scan subdirs
+    plugin_mod = os.path.splitext(plugin_mod)[0]
+    matching_test_modules = matching_test_modules.union(set(glob.glob(os.path.join(
+        type_base_subdir,
+        plugin_dir,
+        f'*{plugin_mod}/**',
+    ), recursive=True)))
+    matching_test_modules = set(f for f in matching_test_modules if not os.path.isdir(f))
+
     # Path(matching_test_modules[0]).relative_to(Path(checkout_path))
     # os.path.relpath(matching_test_modules[0], checkout_path)
     if not matching_test_modules:
@@ -1088,7 +1114,10 @@ def assemble_collections(checkout_path, spec, args, target_github_org):
                 src_plugin_base = PLUGIN_EXCEPTION_PATHS.get(plugin_type, os.path.join('lib', 'ansible', 'plugins', plugin_type))
 
                 # ensure destinations exist
-                relative_dest_plugin_base = os.path.join('plugins', plugin_type)
+                if plugin_type in PLUGIN_DEST_EXCEPTION_PATHS:
+                    relative_dest_plugin_base = PLUGIN_DEST_EXCEPTION_PATHS[plugin_type]
+                else:
+                    relative_dest_plugin_base = os.path.join('plugins', plugin_type)
                 dest_plugin_base = os.path.join(collection_dir, relative_dest_plugin_base)
                 if not os.path.exists(dest_plugin_base):
                     os.makedirs(dest_plugin_base)
@@ -1161,10 +1190,12 @@ def assemble_collections(checkout_path, spec, args, target_github_org):
                     import_deps += deps[0]
                     docs_deps += deps[1]
 
-                    if args.skip_tests:
+                    if args.skip_tests or plugin_type in NOT_PLUGINS:
+                        # skip rest for 'not really plugins'
                         continue
 
                     integration_test_dirs.extend(poor_mans_integration_tests_discovery(checkout_path, plugin_type, plugin))
+
                     # process unit tests
                     plugin_unit_tests_copy_map = create_unit_tests_copy_map(
                         checkout_path, collection_dir, plugin_type, plugin,
@@ -1200,13 +1231,18 @@ def assemble_collections(checkout_path, spec, args, target_github_org):
                 integration_tests_deps = set()
 
             inject_gitignore_into_collection(collection_dir)
+            j2_ctx = {
+                'coll_ns': namespace,
+                'coll_name': collection,
+                'gh_org': target_github_org,
+            }
             inject_readme_into_collection(
                 collection_dir,
-                ctx={'coll_ns': namespace, 'coll_name': collection},
+                ctx=j2_ctx,
             )
             inject_github_actions_workflow_into_collection(
                 collection_dir,
-                ctx={'coll_ns': namespace, 'coll_name': collection},
+                ctx=j2_ctx,
             )
 
             # write collection metadata
@@ -1313,7 +1349,7 @@ def add_deps_to_metadata(deps, galaxy_metadata):
         galaxy_metadata['dependencies'][dep] = '>=1.0'
 
 
-def publish_to_github(collections_target_dir, spec, *, gh_org, gh_app_id, gh_app_key_path):
+def publish_to_github(collections_target_dir, spec, github_api, rsa_key):
     """Push all migrated collections to their Git remotes."""
     collections_base_dir = os.path.join(collections_target_dir, 'collections')
     collections_root_dir = os.path.join(
@@ -1326,64 +1362,53 @@ def publish_to_github(collections_target_dir, spec, *, gh_org, gh_app_id, gh_app
         for coll in ns_val.keys()
         if not coll.startswith('_')
     )
-    github_api = GitHubOrgClient(gh_app_id, gh_app_key_path, gh_org)
-    for collection_dir, repo_name in collection_paths_except_core:
-        git_repo_url = read_yaml_file(
-            os.path.join(collection_dir, 'galaxy.yml'),
-        )['repository']
-        with contextlib.suppress(LookupError):
-            git_repo_url = github_api.get_git_repo_write_uri(repo_name)
-        logger.debug(
-            'Using %s...%s Git URL for push',
-            git_repo_url[:5], git_repo_url[-5:],
-        )
-        logger.info(
-            'Rebasing the migrated collection on top of the Git remote',
-        )
-        # Putting our newly generated stuff on top of what's on remote:
-        # Ref: https://demisx.github.io/git/rebase/2015/07/02/git-rebase-keep-my-branch-changes.html
-        subprocess.check_call(
-            (
-                'git', 'pull',
-                '--allow-unrelated-histories',
-                '--rebase',
-                '--strategy', 'recursive',
-                # Refs:
-                # * https://stackoverflow.com/a/3443225/595220
-                # * https://dev.to/willamesoares/git-ours-or-theirs-part1-agh
-                # * https://dev.to/willamesoares/git-ours-or-theirs-part-2-d0o
-                '--strategy-option', 'theirs',
-                git_repo_url,
-                'master'
-            ),
-            cwd=collection_dir,
-        )
-        logger.info('Pushing the migrated collection to the Git remote')
-        subprocess.check_call(
-            ('git', 'push', '--force', git_repo_url, 'HEAD:master'),
-            cwd=collection_dir,
-        )
-        logger.info(
-            'The migrated collection has been successfully published to '
-            '`https://github.com/%s/%s.git`...',
-            gh_org,
-            repo_name,
-        )
+    logger.debug('Using SSH key %s...', rsa_key.public_openssh)
+    with rsa_key.ssh_agent as ssh_agent:
+        for collection_dir, repo_name in collection_paths_except_core:
+            galaxy_yml = read_yaml_file(
+                os.path.join(collection_dir, 'galaxy.yml'),
+            )
+            git_repo_url = galaxy_yml['repository']
+            coll_home_url = galaxy_yml['repository']
+            git_repo_url_repr = '...'.join((
+                git_repo_url[:5], git_repo_url[-5:],
+            )) if not git_repo_url.startswith('git@') else git_repo_url
+            logger.info(
+                'Forcefully pushing the migrated collection `%s` '
+                'to GitHub org `%s` using `%s` Git URL for push',
+                repo_name,
+                github_api.github_org_name,
+                git_repo_url_repr,
+            )
+            git_force_push_cmd = (
+                'git', 'push', '--force', git_repo_url, 'HEAD:master',
+            )
+            with github_api.tmp_deployment_key_for(repo_name):
+                ssh_agent.check_call(git_force_push_cmd, cwd=collection_dir)
+            logger.info(
+                'The migrated collection has been successfully published to '
+                '`%s` GitHub repository...',
+                coll_home_url,
+            )
 
 
-def push_migrated_core(releases_dir):
+def push_migrated_core(releases_dir, github_api, rsa_key):
     devel_path = os.path.join(releases_dir, f'{DEVEL_BRANCH}.git')
 
-    subprocess.check_call(
-        ('git', 'remote', 'add', 'migrated_core', MIGRATED_DEVEL_REMOTE),
-        cwd=devel_path,
+    migrated_devel_remote = (
+        f'git@github.com:{github_api.github_org_name}/'
+        f'{MIGRATED_DEVEL_REPO_NAME}.git'
     )
 
-    # NOTE: assumes the repo is not used and/or is locked while migration is running
-    subprocess.check_call(
-        ('git', 'push', '--force', 'migrated_core', DEVEL_BRANCH),
-        cwd=devel_path,
-    )
+    logger.debug('Using SSH key %s...', rsa_key.public_openssh)
+    with rsa_key.ssh_agent as ssh_agent, github_api.tmp_deployment_key_for(
+            MIGRATED_DEVEL_REPO_NAME,
+    ):
+        # NOTE: assumes the repo is not used and/or is locked while migration is running
+        ssh_agent.check_call(
+            ('git', 'push', '--force', migrated_devel_remote, DEVEL_BRANCH),
+            cwd=devel_path,
+        )
 
 
 def assert_migrating_git_tracked_resources(
@@ -1656,7 +1681,7 @@ def rewrite_ini_section(config, key_map, section, namespace, collection, spec, a
                     raise RuntimeError(msg)
 
                 logger.debug(msg)
-                new_plugin_names.append(get_plugin_fqcn(namespace, plugin_collection, plugin_name))
+                new_plugin_names.append(get_plugin_fqcn(plugin_namespace, plugin_collection, plugin_name))
                 integration_tests_add_to_deps((namespace, collection), (plugin_namespace, plugin_collection))
             except LookupError:
                 new_plugin_names.append(plugin_name)
@@ -1724,25 +1749,21 @@ def _rewrite_yaml_mapping_keys_non_vars(el, namespace, collection, spec, args):
                     raise RuntimeError(msg)
 
                 logger.debug(msg)
-                translate.append((prefix + get_plugin_fqcn(namespace, plugin_collection, plugin_name), key))
+                translate.append((prefix + get_plugin_fqcn(plugin_namespace, plugin_collection, plugin_name), key))
                 integration_tests_add_to_deps((namespace, collection), (plugin_namespace, plugin_collection))
             except LookupError:
                 pass
 
-        for ns in spec.keys():
-            for coll in get_rewritable_collections(ns, spec):
-                if collection == coll:
-                    # https://github.com/ansible-community/collection_migration/issues/156
-                    continue
-
-                try:
-                    modules_in_collection = get_plugins_from_collection(ns, coll, 'modules', spec)
-                except LookupError:
-                    continue
-
-                for module in modules_in_collection:
-                    if key != module:
+        if isinstance(el[key], Mapping):
+            for ns in spec.keys():
+                for coll in get_rewritable_collections(ns, spec):
+                    if collection == coll:
+                        # https://github.com/ansible-community/collection_migration/issues/156
                         continue
+
+                    if key not in get_plugins_from_collection(ns, coll, 'modules', spec):
+                        continue
+
                     new_module_name = get_plugin_fqcn(ns, coll, key)
                     msg = 'Rewriting to %s' % new_module_name
                     if args.fail_on_core_rewrite:
@@ -1769,7 +1790,7 @@ def _rewrite_yaml_mapping_keys(el, namespace, collection, spec, args, dest):
             plugin_namespace, plugin_collection = get_plugin_collection(el[key], plugin_type, spec)
             if plugin_collection in COLLECTION_SKIP_REWRITE:
                 continue
-            new_plugin_name = get_plugin_fqcn(namespace, plugin_collection, el[key])
+            new_plugin_name = get_plugin_fqcn(plugin_namespace, plugin_collection, el[key])
 
             msg = 'Rewriting to %s' % new_plugin_name
             if args.fail_on_core_rewrite:
@@ -1948,6 +1969,20 @@ def main():
                              ' migration against the list of files kept in core: spec must contain the "_core" collection.')
     parser.add_argument('-R', '--skip-tests', action='store_true', dest='skip_tests', default=False,
                         help='Skip tests and rewrite the runtime code only.')
+    parser.add_argument(
+        '--skip-migration',
+        action='store_true',
+        dest='skip_migration',
+        default=False,
+        help='Skip creating migrated collections.',
+    )
+    parser.add_argument(
+        '--skip-publish',
+        action='store_true',
+        dest='skip_publish',
+        default=False,
+        help='Skip publishing migrated collections and core repositories.',
+    )
 
     args = parser.parse_args()
 
@@ -1970,29 +2005,58 @@ def main():
     global ALL_THE_FILES
     ALL_THE_FILES = checkout_repo(DEVEL_URL, devel_path, refresh=args.refresh)
 
-    # doeet
-    assemble_collections(devel_path, spec, args, args.target_github_org)
+    if args.skip_migration:
+        logger.info('Skipping the migration...')
+    else:
+        logger.info('Starting the migration...')
+
+        # doeet
+        assemble_collections(devel_path, spec, args, args.target_github_org)
+
+        global core
+        print('======= Assumed stayed in core =======\n')
+        print(yaml.dump(core))
+
+        global manual_check
+        print(
+            '======= Could not rewrite the following, '
+            'please check manually =======\n',
+        )
+        print(yaml.dump(dict(manual_check)))
+
+        print(
+            f'See {LOGFILE} for any warnings/errors '
+            'that were logged during migration.',
+        )
+
+    if args.skip_publish:
+        logger.info('Skipping the publish step...')
+        return
+
+    logger.info('Starting the publish step...')
+
+    tmp_rsa_key = None
+    github_api = None
+    if args.publish_to_github or args.push_migrated_core:
+        tmp_rsa_key = RSAKey()
+        gh_api = GitHubOrgClient(
+            args.github_app_id, args.github_app_key_path,
+            args.target_github_org,
+            deployment_rsa_pub_key=tmp_rsa_key.public_openssh,
+        )
+        logger.debug('Initialized a temporary RSA key and GitHub API client')
 
     if args.publish_to_github:
+        logger.info('Publishing the migrated collections to GitHub...')
         publish_to_github(
             args.vardir, spec,
-            gh_org=args.target_github_org,
-            gh_app_id=args.github_app_id,
-            gh_app_key_path=args.github_app_key_path,
+            gh_api, tmp_rsa_key,
         )
 
     if args.push_migrated_core:
-        push_migrated_core(releases_dir)
+        logger.info('Publishing the migrated "Core" to GitHub...')
+        push_migrated_core(releases_dir, gh_api, tmp_rsa_key)
 
-    global core
-    print('======= Assumed stayed in core =======\n')
-    print(yaml.dump(core))
-
-    global manual_check
-    print('======= Could not rewrite the following, please check manually =======\n')
-    print(yaml.dump(dict(manual_check)))
-
-    print('See %s for any warnings/errors that were logged during migration.' % LOGFILE)
 
 if __name__ == "__main__":
     main()
