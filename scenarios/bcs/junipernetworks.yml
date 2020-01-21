@@ -5,13 +5,13 @@ junos:
     - junos.py
     doc_fragments:
     - junos.py
-    netconf:
-    - junos.py
-    terminal:
-    - junos.py
     modules:
     - network/junos/*
     module_utils:
     - network/junos/*
     - network/junos/*/*
     - network/junos/*/*/*
+    netconf:
+    - junos.py
+    terminal:
+    - junos.py

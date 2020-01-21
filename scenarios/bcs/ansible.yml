@@ -5,7 +5,6 @@ _core:
     - command.py
     - gather_facts.py
     - group_by.py
-    - netconf.py
     - normal.py
     - package.py
     - patch.py
@@ -33,9 +32,6 @@ _core:
     - tree.py
     connection:
     - local.py
-    - httpapi.py
-    - netconf.py
-    - network_cli.py
     - ssh.py
     doc_fragments:
     - backup.py
@@ -514,12 +510,6 @@ keycloak:
     - identity/keycloak/*
     modules:
     - identity/keycloak/*
-layer2:
-    modules:
-    - network/layer2/*
-layer3:
-    modules:
-    - network/layer3/*
 misc:
     action:
     - slxos.py
@@ -928,93 +918,41 @@ netcommon:
     action:
     - cli_command.py
     - cli_config.py
-    - edgeos_config.py
-    - ios.py
-    - net_banner.py
-    - net_base.py
-    - net_l2_interface.py
-    - net_l3_interface.py
-    - net_lldp.py
-    - net_lldp_interface.py
-    - net_linkagg.py
-    - net_logging.py
-    - net_interface.py
-    - net_get.py
-    - net_ping.py
-    - net_put.py
-    - net_system.py
-    - net_static_route.py
-    - net_user.py
-    - net_vlan.py
-    - net_vrf.py
+    - net_*
+    - netconf.py
     - network.py
-    - nos_config.py
-    - onyx_config.py
-    - telnet.py
     become:
     - enable.py
-    cliconf:
-    - eric_eccli.py
-    - icx.py
-    - netvisor.py
-    - nos.py
     connection:
-    - paramiko_ssh.py
+    - httpapi.py
     - napalm.py
+    - netconf.py
+    - network_cli.py
+    - persistent.py
     doc_fragments:
-    - network_agnostic.py
-    - openswitch.py
+    - netconf.py
     filter:
     - network.py
     httpapi:
-    - fortianalyzer.py
-    - fortimanager.py
-    - ftd.py
-    - qradar.py
     - restconf.py
-    - splunk.py
-    inventory:
-    - nmap.py
     modules:
-    - network/cli/cli_command.py
-    - network/cli/cli_config.py
-    - network/files/net_get.py
-    - network/files/net_put.py
-    - network/ftd/*
-    - network/fortianalyzer/*
-    - network/icx/*
-    - network/interface/_net_*.py
-    - network/netvisor/*
-    - network/netact/*
-    - network/protocol/_net_lldp.py
+    - network/cli/*
+    - network/files/*
+    - network/interface/*
+    - network/layer2/*
+    - network/layer3/*
+    - network/netconf/*
+    - network/protocol/*
     - network/restconf/*
-    - network/routing/_net_static_route.py
-    - network/system/_net_*.py
+    - network/routing/*
+    - network/system/*
     module_utils:
-    - compat/ipaddress.py
     - network/common/*
     - network/common/*/*
-    - network/edgeos/*
-    - network/edgeswitch/*
-    - network/eric_eccli/*
-    - network/ftd/*
-    - network/icx/*
-    - network/netvisor/*
+    - network/netconf/*
     - network/restconf/*
-    - network/routeros/*
     netconf:
     - default.py
-    terminal:
-    - edgeos.py
-    - edgeswitch.py
-    - eric_eccli.py
-    - icx.py
-    - ios.py
-    - netvisor.py
-    - nos.py
-    - onyx.py
-    - routeros.py
-    - slxos.py
 nso:
     doc_fragments:
     - nso.py
