@@ -1113,7 +1113,6 @@ unix:
     - packaging/os/zypper_repository.py
     - system/alternatives.py
     - system/aix_*.py
-    - system/apk.py
     - system/at.py
     - system/authorized_key.py
     - system/capabilities.py
