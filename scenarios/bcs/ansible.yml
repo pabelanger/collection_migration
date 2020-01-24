@@ -47,7 +47,6 @@ _core:
     - return_common.py
     - shell_common.py
     - url.py
-    - vars_plugins_staging.py
     - validate.py
     filter:
     - core.py
@@ -1113,7 +1112,6 @@ unix:
     - packaging/os/zypper_repository.py
     - system/alternatives.py
     - system/aix_*.py
-    - system/apk.py
     - system/at.py
     - system/authorized_key.py
     - system/capabilities.py
