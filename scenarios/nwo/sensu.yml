@@ -7,4 +7,3 @@ sensu_go:
   - network/iosxr/utils/utils.py
   - network/junos/utils/utils.py
   - network/nxos/utils/utils.py
-  - network/vyos/utils/utils.py
