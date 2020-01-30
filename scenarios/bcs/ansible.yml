@@ -5,7 +5,6 @@ _core:
     - command.py
     - gather_facts.py
     - group_by.py
-    - netconf.py
     - normal.py
     - package.py
     - patch.py
@@ -33,9 +32,7 @@ _core:
     - tree.py
     connection:
     - local.py
-    - httpapi.py
-    - netconf.py
-    - network_cli.py
+    - paramiko_ssh.py
     - ssh.py
     doc_fragments:
     - backup.py
@@ -946,6 +943,7 @@ netcommon:
     - net_user.py
     - net_vlan.py
     - net_vrf.py
+    - netconf.py
     - network.py
     - nos_config.py
     - onyx_config.py
@@ -958,7 +956,9 @@ netcommon:
     - netvisor.py
     - nos.py
     connection:
-    - paramiko_ssh.py
+    - httpapi.py
+    - netconf.py
+    - network_cli.py
     - napalm.py
     doc_fragments:
     - network_agnostic.py
