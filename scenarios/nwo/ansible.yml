@@ -201,6 +201,7 @@ _core:
   - local.py
   - netconf.py
   - network_cli.py
+  - paramiko_ssh.py
   - psrp.py
   - ssh.py
   - winrm.py
