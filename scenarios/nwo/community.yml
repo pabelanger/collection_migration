@@ -2766,7 +2766,6 @@ general:
   - web_infrastructure/__init__.py
   - web_infrastructure/_jenkins_job_facts.py
   - web_infrastructure/_nginx_status_facts.py
-  - web_infrastructure/ansible_tower/__init__.py
   - web_infrastructure/apache2_mod_proxy.py
   - web_infrastructure/apache2_module.py
   - web_infrastructure/deploy_helper.py
