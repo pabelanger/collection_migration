@@ -1747,7 +1747,6 @@ general:
   - files/xml.py
   - identity/__init__.py
   - identity/_onepassword_facts.py
-  - identity/cyberark/__init__.py
   - identity/ipa/__init__.py
   - identity/ipa/ipa_config.py
   - identity/ipa/ipa_dnsrecord.py
