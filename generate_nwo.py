@@ -45,8 +45,6 @@ ghrepos = [
     'https://github.com/ansible-network/ansible_collections.arista.eos',
     'https://github.com/ansible-network/ansible_collections.cisco.ios',
     'https://github.com/ansible-network/ansible_collections.vyos.vyos',
-    'https://github.com/ansible-network/ansible_collections.network.netconf',
-    'https://github.com/ansible-network/ansible_collections.network.cli',
     'https://github.com/ansible-network/ansible_collections.cisco.nxos',
     # community
     'https://github.com/ansible-collections/ansible_collections_netapp',
