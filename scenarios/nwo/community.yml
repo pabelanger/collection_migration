@@ -177,7 +177,6 @@ general:
   - ldap.py
   - lxca_common.py
   - manageiq.py
-  - meraki.py
   - mso.py
   - mysql.py
   - netscaler.py
@@ -473,8 +472,6 @@ general:
   - network/ingate/__init__.py
   - network/ironware/__init__.py
   - network/ironware/ironware.py
-  - network/meraki/__init__.py
-  - network/meraki/meraki.py
   - network/netscaler/__init__.py
   - network/netscaler/netscaler.py
   - network/netvisor/__init__.py
@@ -2248,7 +2245,6 @@ general:
   - network/itential/__init__.py
   - network/itential/iap_start_workflow.py
   - network/itential/iap_token.py
-  - network/meraki/__init__.py
   - network/netact/__init__.py
   - network/netact/netact_cm_command.py
   - network/netscaler/__init__.py
