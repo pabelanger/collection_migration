@@ -113,6 +113,9 @@ jobs:
     - name: >-
         Generate tarballs out of migrated collections, one by one
       run: |
+        python -m venv /tmp/ansible-${{matrix.migration-scenario}}-venv
+        source /tmp/ansible-${{matrix.migration-scenario}}-venv/bin/activate
+        pip install .cache/releases/devel.git
           for coll_dir in `ls .cache/collections/*/*/* -d`
           do
               (
@@ -122,6 +125,8 @@ jobs:
                   ansible-galaxy collection build --output-path "${GITHUB_WORKSPACE}/.cache/collection-tarballs"
               )
           done
+        deactivate
+        rm -rf /tmp/ansible-${{matrix.migration-scenario}}-venv
     - name: Store migrated collection artifacts
       uses: actions/upload-artifact@v1
       with:
@@ -174,7 +179,12 @@ jobs:
     - name: >-
         Install the migrated collections
       run: |
+        python -m venv /tmp/ansible-${{matrix.migration-scenario}}-venv
+        source /tmp/ansible-${{matrix.migration-scenario}}-venv/bin/activate
+        pip install .cache/releases/devel.git
           ansible-galaxy collection install .cache/collection-tarballs/*.tar.gz
+        deactivate
+        rm -rf /tmp/ansible-${{matrix.migration-scenario}}-venv
     - name: >-
         List the migrated collections
       run: |
