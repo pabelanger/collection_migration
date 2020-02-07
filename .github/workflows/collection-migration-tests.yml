@@ -88,15 +88,21 @@ jobs:
       run: |
         git config --global user.email "ansible_migration@example.com"
         git config --global user.name "Poor B"
-    - name: Run migration scenario ${{ matrix.migration-scenario }}
-      run: >-
-        python -m
-        migrate
-        -m
-        -s "scenarios/${{ matrix.migration-scenario }}"
-        --refresh "${{ env.CORE_REPO_REF }}"
-        --skip-publish
-        --convert-symlinks
+#    - name: Run migration scenario ${{ matrix.migration-scenario }}
+#      run: >-
+#        python -m
+#        migrate
+#        -m
+#        -s "scenarios/${{ matrix.migration-scenario }}"
+#        --refresh "${{ env.CORE_REPO_REF }}"
+#        --skip-publish
+#        --convert-symlinks
+    - name: Build ansible tarball from scenario
+      run: |
+        mkdir -p "${GITHUB_WORKSPACE}/.cache/collection-tarballs/ansible/"
+        cd .cache/releases/devel.git
+        _ANSIBLE_SDIST_FROM_MAKEFILE=1 python setup.py sdist
+        mv dist/*.tar.gz "${GITHUB_WORKSPACE}/.cache/collection-tarballs/ansible/"
     - name: Prepare user's SSH config dir
       run: |
         mkdir -p ~/.ssh
@@ -153,6 +159,9 @@ jobs:
     - name: >-
         Generate tarballs out of migrated collections, one by one
       run: |
+        python -m venv /tmp/ansible-${{matrix.migration-scenario}}-venv
+        source /tmp/ansible-${{matrix.migration-scenario}}-venv/bin/activate
+        pip install "${GITHUB_WORKSPACE}/.cache/collection-tarballs/ansible/*.tar.gz"
           for coll_dir in `ls .cache/collections/*/*/* -d`
           do
               (
@@ -162,6 +171,8 @@ jobs:
                   ansible-galaxy collection build --output-path "${GITHUB_WORKSPACE}/.cache/collection-tarballs"
               )
           done
+        deactivate
+        rm -rf /tmp/ansible-${{matrix.migration-scenario}}-venv
     - name: Store migrated collection artifacts
       uses: actions/upload-artifact@v1
       with:
@@ -202,15 +213,15 @@ jobs:
       run: sudo apt remove --yes ansible
     - name: Uninstall previously installed Ansible via Pip
       run: python -m pip uninstall ansible
-    - name: Install Ansible==devel
-      run: >-
-        python -m pip install git+https://github.com/ansible/ansible.git@devel
     - name: Download migrated collection artifacts
       uses: actions/download-artifact@v1
       with:
         name: >-
           migrated-collections-${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.migration-scenario }}
         path: .cache/collection-tarballs
+    - name: Install Ansible==devel
+      run: >-
+        pip install "${GITHUB_WORKSPACE}/.cache/collection-tarballs/ansible/*.tar.gz"
     - name: >-
         Install the migrated collections
       run: |
@@ -266,15 +277,15 @@ jobs:
       run: sudo apt remove --yes ansible
     - name: Uninstall previously installed Ansible via Pip
       run: python -m pip uninstall ansible
-    - name: Install Ansible==devel
-      run: >-
-        python -m pip install git+https://github.com/ansible/ansible.git@devel
     - name: Download migrated collection artifacts
       uses: actions/download-artifact@v1
       with:
         name: >-
           migrated-collections-${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.migration-scenario }}
         path: .cache/collection-tarballs
+    - name: Install Ansible==devel
+      run: >-
+        pip install "${GITHUB_WORKSPACE}/.cache/collection-tarballs/ansible/*.tar.gz"
     - name: >-
         Install the migrated collections
       run: |
