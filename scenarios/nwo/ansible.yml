@@ -319,6 +319,7 @@ _core:
   - commands/raw.py
   - commands/script.py
   - commands/shell.py
+  - files/__init__.py
   - files/blockinfile.py
   - files/copy.py
   - files/fetch.py
