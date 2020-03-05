@@ -227,7 +227,6 @@ general:
   action:
   - aireos.py
   - aruba.py
-  - asa.py
   - ce.py
   - ce_template.py
   - cnos.py
@@ -289,7 +288,6 @@ general:
   - aireos.py
   - apconos.py
   - aruba.py
-  - asa.py
   - ce.py
   - cnos.py
   - dellos10.py
@@ -330,7 +328,6 @@ general:
   - aireos.py
   - alicloud.py
   - aruba.py
-  - asa.py
   - auth_basic.py
   - avi.py
   - azure.py
@@ -579,8 +576,6 @@ general:
   - network/apconos/apconos.py
   - network/aruba/__init__.py
   - network/aruba/aruba.py
-  - network/asa/__init__.py
-  - network/asa/asa.py
   - network/avi/__init__.py
   - network/avi/ansible_utils.py
   - network/avi/avi.py
@@ -1461,10 +1456,6 @@ general:
   - network/apconos/apconos_command.py
   - network/aruba/aruba_command.py
   - network/aruba/aruba_config.py
-  - network/asa/asa_acl.py
-  - network/asa/asa_command.py
-  - network/asa/asa_config.py
-  - network/asa/asa_og.py
   - network/avi/avi_actiongroupconfig.py
   - network/avi/avi_alertconfig.py
   - network/avi/avi_alertemailconfig.py
@@ -2235,7 +2226,6 @@ general:
   - aireos.py
   - apconos.py
   - aruba.py
-  - asa.py
   - ce.py
   - cnos.py
   - dellos10.py
